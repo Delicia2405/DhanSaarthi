@@ -3,13 +3,14 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
 from models.transaction import Transaction
+from services.auth_service import authenticate_request
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
 
 @dashboard_bp.get("")
 def dashboard():
-    user_id = request.args.get("user_id", 1, type=int)
+    user_id = authenticate_request()
 
     # Fetch all transactions for the user ordered by date descending
     transactions = Transaction.query.filter_by(user_id=user_id).order_by(Transaction.transaction_date.desc()).all()

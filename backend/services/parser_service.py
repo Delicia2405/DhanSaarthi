@@ -22,7 +22,13 @@ def parse_csv(file_storage):
     - 2-Column: Date, Description, Debit, Credit
     - With custom/pre-categorized columns: Date, Description, Amount, Category, Type
     """
-    wrapper = TextIOWrapper(file_storage.stream, encoding="utf-8-sig")
+    # Read stream content and decode it properly
+    file_storage.stream.seek(0)
+    content = file_storage.stream.read()
+    if isinstance(content, bytes):
+        content = content.decode("utf-8-sig")
+    import io
+    wrapper = io.StringIO(content)
     rows = csv.DictReader(wrapper)
     result = []
 

@@ -8,7 +8,13 @@ class Profile(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), unique=True, nullable=False)
     confidence_score = db.Column(db.Integer, default=0, nullable=False)
     score_history = db.Column(db.JSON, default=list, nullable=False)
+    risk_profile = db.Column(db.JSON, nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
-        return {"confidence_score": self.confidence_score, "score_history": self.score_history, "updated_at": self.updated_at.isoformat() if self.updated_at else None}
+        return {
+            "confidence_score": self.confidence_score,
+            "score_history": self.score_history,
+            "risk_profile": self.risk_profile,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }

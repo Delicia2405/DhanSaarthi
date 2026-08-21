@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime
 
 
@@ -42,4 +43,34 @@ def parse_date(value):
             continue
 
     raise ValueError(f"Unable to parse date: '{value}'. Expected YYYY-MM-DD or DD/MM/YYYY format.")
+
+
+def validate_email(email):
+    if not email:
+        raise ValueError("Email is required")
+    email_str = str(email).strip().lower()
+    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    if not re.match(pattern, email_str):
+        raise ValueError("Invalid email format")
+    return email_str
+
+
+def validate_password(password):
+    if not password:
+        raise ValueError("Password is required")
+    pwd_str = str(password)
+    if len(pwd_str) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    return pwd_str
+
+
+def validate_number(value, name, min_val=0.0):
+    try:
+        val_float = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a valid number")
+    if val_float < min_val:
+        raise ValueError(f"{name} must be at least {min_val}")
+    return val_float
+
 

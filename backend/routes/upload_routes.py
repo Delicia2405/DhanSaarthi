@@ -4,6 +4,7 @@ from models.transaction import Transaction
 from models.user import User
 from models.profile import Profile
 from services.parser_service import parse_csv
+from services.auth_service import authenticate_request
 from utils.db import db
 
 upload_bp = Blueprint("upload", __name__)
@@ -15,7 +16,7 @@ def upload_statement():
     if not file or not file.filename.lower().endswith(".csv"):
         return jsonify({"error": "A valid CSV statement file is required"}), 400
 
-    user_id = request.args.get("user_id", 1, type=int)
+    user_id = authenticate_request()
 
     # Ensure user exists
     user = User.query.get(user_id)
