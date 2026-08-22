@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE_URL = "http://localhost:5000/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -468,7 +468,7 @@ const callAPI = async (endpoint, options = {}) => {
       const q = (data.message || "").toLowerCase().trim();
       const dash = computeMockDashboard(db);
       const scoreObj = computeMockScore(db, dash);
-      
+
       let reply = "";
       let suggestions = [
         "Where is most of my money going?",
@@ -480,7 +480,7 @@ const callAPI = async (endpoint, options = {}) => {
         const txns = db.transactions || [];
         const latestTxn = txns[txns.length - 1];
         const avgDaily = Math.round(dash.total_expense / (dash.monthly_trend.length || 1) / 30);
-        
+
         if (q.includes("yesterday")) {
           reply = `📅 **Yesterday's Spending Report:**\n\n` +
             `You had **INR 0.00** in recorded expenses yesterday.\n\n` +
