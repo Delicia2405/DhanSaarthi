@@ -34,16 +34,19 @@ export default function TrendChart({ data = [] }) {
     );
   }
 
-  // Format month names (e.g. 2026-08 -> Aug 2026)
+  // Format display labels (e.g. "05 Aug" for daily, "Aug 2026" for monthly)
   const formattedData = data.map(item => {
-    const parts = item.month.split("-");
+    if (item.label) {
+      return { ...item, displayLabel: item.label };
+    }
+    const parts = (item.month || "").split("-");
     const dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
     const label = isNaN(dateObj.getTime()) 
-      ? item.month 
+      ? (item.month || "")
       : dateObj.toLocaleDateString("en-US", { month: "short", year: "numeric" });
     return {
       ...item,
-      monthLabel: label
+      displayLabel: label
     };
   });
 
@@ -63,7 +66,7 @@ export default function TrendChart({ data = [] }) {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis 
-            dataKey="monthLabel" 
+            dataKey="displayLabel" 
             stroke="var(--text-muted)" 
             fontSize={11} 
             tickLine={false} 

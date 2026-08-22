@@ -90,11 +90,13 @@ def build_financial_context(user_id):
         "avg_monthly_expense": round(avg_monthly_expense, 2),
         "avg_monthly_savings": round(avg_monthly_savings, 2),
         "num_months": num_months,
+        "monthly_data": monthly_data,
         "category_breakdown": category_breakdown,
         "score_data": score_data,
         "goals": goals_context,
         "risk_profile": profile.risk_profile if profile and profile.risk_profile else None,
         "recent_transactions": recent_txns,
+        "all_transactions": [t.to_dict() for t in transactions],
         "transaction_count": len(transactions)
     }
 
@@ -105,10 +107,11 @@ def rule_based_response(query, ctx):
     Understands and answers inquiries based on the user's live financial data.
     """
     q = query.lower().strip()
+    from datetime import date, timedelta, datetime
 
     # 1. Greetings & Identity
     if any(k in q for k in ["hi", "hello", "hey", "who are you", "what can you do", "help"]):
-        if not any(k in q for k in ["spend", "score", "goal", "save", "income", "money", "invest"]):
+        if not any(k in q for k in ["spend", "score", "goal", "save", "income", "money", "invest", "yesterday", "today"]):
             user_name = ctx["user_name"]
             score = ctx["score_data"]["score"]
             return {
@@ -127,7 +130,164 @@ def rule_based_response(query, ctx):
                 ]
             }
 
-    # 2. Specific Category Inquiries (e.g. food, dining, shopping, rent, groceries, travel)
+    # 2. Date & Timeframe Specific Inquiries (e.g. yesterday, today, this month, last month, specific date, daily average)
+    all_txns = ctx.get("all_transactions", [])
+    
+    # Yesterday / Today / Specific Day
+    if any(k in q for k in ["yesterday", "today", "day before", "daily spend", "average daily", "per day"]):
+        today_date = date.today()
+        yesterday_date = today_date - timedelta(days=1)
+        yesterday_str = yesterday_date.strftime("%Y-%m-%d")
+        today_str = today_date.strftime("%Y-%m-%d")
+
+        # Find latest transaction date in records if exists
+        latest_txn_date_str = all_txns[0]["date"] if all_txns else None
+
+        if "yesterday" in q:
+            # Check for transactions on yesterday's date
+            yesterday_txns = [t for t in all_txns if t.get("date") == yesterday_str and t.get("type") == "expense" and t.get("category") != "Income"]
+            yesterday_total = sum(float(t["amount"]) for t in yesterday_txns)
+            
+            # Also find transactions on the latest statement date as helpful context
+            latest_day_txns = [t for t in all_txns if t.get("date") == latest_txn_date_str and t.get("type") == "expense" and t.get("category") != "Income"] if latest_txn_date_str else []
+            latest_day_total = sum(float(t["amount"]) for t in latest_day_txns)
+            avg_daily = ctx["avg_monthly_expense"] / 30.0 if ctx.get("avg_monthly_expense") else 0.0
+
+            if yesterday_txns:
+                items_str = "\n".join([f"- **{t['description']}**: INR {float(t['amount']):,.2f} ({t['category']})" for t in yesterday_txns])
+                return {
+                    "reply": (
+                        f"📅 **Yesterday's Spending ({yesterday_date.strftime('%d %B %Y')}):**\n\n"
+                        f"You spent a total of **INR {yesterday_total:,.2f}** across {len(yesterday_txns)} transaction(s):\n\n"
+                        f"{items_str}\n\n"
+                        f"💡 *Your overall daily average spending is **INR {avg_daily:,.2f}/day**.*"
+                    ),
+                    "suggestions": [
+                        "What is my daily average expense?",
+                        "Where is most of my money going?",
+                        "What are my biggest expenses?"
+                    ]
+                }
+            else:
+                context_note = ""
+                if latest_txn_date_str:
+                    try:
+                        latest_d_obj = datetime.strptime(latest_txn_date_str, "%Y-%m-%d")
+                        formatted_latest_d = latest_d_obj.strftime("%d %B %Y")
+                    except Exception:
+                        formatted_latest_d = latest_txn_date_str
+                    context_note = (
+                        f"\n\n📌 **Statement Context:** Your uploaded bank statement records go up to **{formatted_latest_d}**.\n"
+                        f"- On **{formatted_latest_d}** (your latest recorded statement day), you spent **INR {latest_day_total:,.2f}**.\n"
+                        f"- Your **daily average spending** across recorded months is **INR {avg_daily:,.2f}/day**."
+                    )
+
+                return {
+                    "reply": (
+                        f"📅 **Yesterday's Spending Report ({yesterday_date.strftime('%d %B %Y')}):**\n\n"
+                        f"You had **INR 0.00** in recorded expenses yesterday."
+                        f"{context_note}"
+                    ),
+                    "suggestions": [
+                        "What is my daily average expense?",
+                        "Show my recent transactions",
+                        "Where is most of my money going?"
+                    ]
+                }
+
+        if "today" in q:
+            today_txns = [t for t in all_txns if t.get("date") == today_str and t.get("type") == "expense" and t.get("category") != "Income"]
+            today_total = sum(float(t["amount"]) for t in today_txns)
+            avg_daily = ctx["avg_monthly_expense"] / 30.0 if ctx.get("avg_monthly_expense") else 0.0
+            if today_txns:
+                items_str = "\n".join([f"- **{t['description']}**: INR {float(t['amount']):,.2f} ({t['category']})" for t in today_txns])
+                return {
+                    "reply": (
+                        f"📅 **Today's Spending ({today_date.strftime('%d %B %Y')}):**\n\n"
+                        f"You have spent **INR {today_total:,.2f}** today so far:\n\n"
+                        f"{items_str}"
+                    ),
+                    "suggestions": ["Show my top expenses", "Check my savings rate", "Review my financial goals"]
+                }
+            else:
+                return {
+                    "reply": (
+                        f"📅 **Today's Spending ({today_date.strftime('%d %B %Y')}):**\n\n"
+                        f"No new expenses recorded for today so far (**INR 0.00**).\n\n"
+                        f"💡 Your average daily burn rate is **INR {avg_daily:,.2f}/day**."
+                    ),
+                    "suggestions": ["What are my top expenses?", "Where is most of my money going?", "Check my Confidence Score"]
+                }
+
+        if any(k in q for k in ["daily spend", "average daily", "per day"]):
+            avg_daily = ctx["avg_monthly_expense"] / 30.0 if ctx.get("avg_monthly_expense") else 0.0
+            avg_daily_inc = ctx["avg_monthly_income"] / 30.0 if ctx.get("avg_monthly_income") else 0.0
+            return {
+                "reply": (
+                    f"📊 **Daily Cash Flow Breakdown**\n\n"
+                    f"- 📈 **Average Daily Income:** INR {avg_daily_inc:,.2f}/day\n"
+                    f"- 📉 **Average Daily Outflow:** INR {avg_daily:,.2f}/day\n"
+                    f"- 💰 **Daily Net Savings:** INR {(avg_daily_inc - avg_daily):,.2f}/day\n\n"
+                    f"Keeping your daily discretionary spends under **INR {round(avg_daily * 0.3):,.2f}** will help you reach your goals faster."
+                ),
+                "suggestions": ["What are my top expenses?", "How to boost my savings rate?", "Can I reach my goals?"]
+            }
+
+    # Month Specific Inquiries (e.g., "in august", "in july", "this month", "last month")
+    if any(k in q for k in ["august", "july", "june", "september", "october", "this month", "last month"]):
+        month_names = {
+            "january": "01", "february": "02", "march": "03", "april": "04",
+            "may": "05", "june": "06", "july": "07", "august": "08",
+            "september": "09", "october": "10", "november": "11", "december": "12"
+        }
+        target_month_key = None
+        for mname, mnum in month_names.items():
+            if mname in q:
+                # Find matching year from transactions
+                for y in ["2026", "2025", "2024"]:
+                    key = f"{y}-{mnum}"
+                    if key in ctx.get("monthly_data", {}):
+                        target_month_key = key
+                        break
+                if not target_month_key:
+                    target_month_key = f"2026-{mnum}"
+                break
+
+        if not target_month_key:
+            if "this month" in q:
+                target_month_key = "2026-08"
+            elif "last month" in q:
+                target_month_key = "2026-07"
+
+        if target_month_key and target_month_key in ctx.get("monthly_data", {}):
+            mData = ctx["monthly_data"][target_month_key]
+            m_inc = mData["income"]
+            m_exp = mData["expense"]
+            m_sav = m_inc - m_exp
+            m_rate = round((m_sav / m_inc * 100), 1) if m_inc > 0 else 0.0
+
+            try:
+                m_label = datetime.strptime(target_month_key, "%Y-%m").strftime("%B %Y")
+            except Exception:
+                m_label = target_month_key
+
+            return {
+                "reply": (
+                    f"📆 **Financial Summary for {m_label}**\n\n"
+                    f"- 💵 **Total Inflow (Income):** INR {m_inc:,.2f}\n"
+                    f"- 💳 **Total Outflow (Expenses):** INR {m_exp:,.2f}\n"
+                    f"- 💰 **Net Savings Surplus:** INR {m_sav:,.2f}\n"
+                    f"- 📊 **Savings Rate:** **{m_rate}%**\n\n"
+                    f"💡 " + ("Great job! Your savings rate for this month was positive and healthy." if m_rate >= 25 else "Consider reviewing non-essential spending for this period.")
+                ),
+                "suggestions": [
+                    "What are my biggest expenses in this month?",
+                    "Where is most of my money going?",
+                    "How to improve my savings rate?"
+                ]
+            }
+
+    # 3. Specific Category Inquiries (e.g. food, dining, shopping, rent, groceries, travel)
     category_map = {
         "food": ["food & dining", "food", "dining", "swiggy", "zomato", "restaurant", "cafe"],
         "shopping": ["shopping", "amazon", "flipkart", "myntra", "clothes", "electronics"],
@@ -143,6 +303,9 @@ def rule_based_response(query, ctx):
     matched_cat = None
     for cat_key, aliases in category_map.items():
         if any(alias in q for alias in aliases):
+            # Check if user is asking about spending in this category
+            matched_cat = cat_key
+            break
             # Check if user is asking about spending in this category
             matched_cat = cat_key
             break

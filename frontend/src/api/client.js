@@ -65,30 +65,69 @@ const saveMockDB = (db) => {
   localStorage.setItem("dhansaarthi_mock_db", JSON.stringify(db));
 };
 
-// Calculate dashboard analytics from mock database
-const computeMockDashboard = (db) => {
-  const txns = db.transactions;
+// Calculate dashboard analytics from mock database with timeframe support
+const computeMockDashboard = (db, params = {}) => {
+  const txns = db.transactions || [];
+  const timeframe = (params.timeframe || "lifetime").toLowerCase();
+  let reqYear = params.year;
+  let reqMonth = params.month;
+
+  const yearsSet = new Set();
+  const monthsDict = {};
+
+  txns.forEach((t) => {
+    const dStr = t.date || "2026-08-01";
+    const y = dStr.substring(0, 4);
+    const m = dStr.substring(0, 7);
+    yearsSet.add(y);
+    if (!monthsDict[m]) {
+      const dateObj = new Date(dStr);
+      const mName = isNaN(dateObj.getTime())
+        ? m
+        : dateObj.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      monthsDict[m] = { key: m, label: mName, year: y };
+    }
+  });
+
+  const availableYears = Array.from(yearsSet).sort().reverse();
+  const availableMonths = Object.values(monthsDict).sort((a, b) => b.key.localeCompare(a.key));
+
+  if (!reqYear && availableYears.length > 0) reqYear = availableYears[0];
+  if (!reqMonth && availableMonths.length > 0) reqMonth = availableMonths[0].key;
+
+  let filteredTxns = txns;
+  let activePeriodLabel = "Lifetime (All-Time)";
+
+  if (timeframe === "yearly") {
+    filteredTxns = txns.filter((t) => (t.date || "").startsWith(reqYear));
+    activePeriodLabel = `Year ${reqYear}`;
+  } else if (timeframe === "monthly") {
+    filteredTxns = txns.filter((t) => (t.date || "").startsWith(reqMonth));
+    const foundM = availableMonths.find((m) => m.key === reqMonth);
+    activePeriodLabel = foundM ? foundM.label : reqMonth;
+  }
+
   let totalIncome = 0;
   let totalExpense = 0;
   const categoryTotals = {};
-  const monthlyData = {};
+  const trendMap = {};
 
-  txns.forEach((t) => {
+  filteredTxns.forEach((t) => {
     const amt = parseFloat(t.amount);
-    const dateObj = new Date(t.date);
-    const monthKey = isNaN(dateObj.getTime()) ? "2026-08" : t.date.substring(0, 7);
+    const dStr = t.date || "2026-08-01";
+    const bucketKey = timeframe === "monthly" ? dStr : dStr.substring(0, 7);
 
-    if (!monthlyData[monthKey]) {
-      monthlyData[monthKey] = { income: 0, expense: 0 };
+    if (!trendMap[bucketKey]) {
+      trendMap[bucketKey] = { income: 0, expense: 0 };
     }
 
     if (t.type === "income" || t.category === "Income") {
       totalIncome += amt;
-      monthlyData[monthKey].income += amt;
+      trendMap[bucketKey].income += amt;
     } else {
       totalExpense += amt;
       categoryTotals[t.category] = (categoryTotals[t.category] || 0) + amt;
-      monthlyData[monthKey].expense += amt;
+      trendMap[bucketKey].expense += amt;
     }
   });
 
@@ -101,16 +140,36 @@ const computeMockDashboard = (db) => {
     percentage: totalExpense > 0 ? Math.round((amount / totalExpense) * 100 * 10) / 10 : 0
   })).sort((a, b) => b.amount - a.amount);
 
-  const monthlyTrend = Object.entries(monthlyData).map(([month, vals]) => {
+  const trendList = Object.entries(trendMap).map(([key, vals]) => {
     const savings = vals.income - vals.expense;
+    let displayLabel = key;
+    if (timeframe === "monthly") {
+      const parts = key.split("-");
+      if (parts.length === 3) {
+        displayLabel = `${parts[2]} ${new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1).toLocaleDateString("en-US", { month: "short" })}`;
+      }
+    } else {
+      const parts = key.split("-");
+      if (parts.length >= 2) {
+        displayLabel = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      }
+    }
     return {
-      month,
+      key,
+      month: key,
+      label: displayLabel,
       income: Math.round(vals.income * 100) / 100,
       expense: Math.round(vals.expense * 100) / 100,
       savings: Math.round(savings * 100) / 100,
       savings_rate: vals.income > 0 ? Math.round((savings / vals.income) * 100 * 10) / 10 : 0
     };
-  }).sort((a, b) => a.month.localeCompare(b.month));
+  }).sort((a, b) => a.key.localeCompare(b.key));
+
+  const topCat = categoryBreakdown[0];
+  let summaryText = `In ${activePeriodLabel}, you earned ₹${totalIncome.toLocaleString()}, spent ₹${totalExpense.toLocaleString()}, and saved ₹${netSavings.toLocaleString()} (${savingsRate}% savings rate).`;
+  if (topCat) {
+    summaryText += ` Your highest expense category was ${topCat.category} at ₹${topCat.amount.toLocaleString()} (${topCat.percentage}%).`;
+  }
 
   return {
     total_income: Math.round(totalIncome * 100) / 100,
@@ -119,9 +178,18 @@ const computeMockDashboard = (db) => {
     savings_rate: savingsRate,
     by_category: categoryTotals,
     category_breakdown: categoryBreakdown,
-    monthly_trend: monthlyTrend,
-    recent_transactions: txns.slice(-15).reverse(),
-    transaction_count: txns.length
+    monthly_trend: trendList,
+    trend_data: trendList,
+    recent_transactions: filteredTxns.slice(-25).reverse(),
+    transaction_count: filteredTxns.length,
+    all_time_transaction_count: txns.length,
+    available_years: availableYears,
+    available_months: availableMonths,
+    selected_timeframe: timeframe,
+    selected_year: reqYear,
+    selected_month: reqMonth,
+    active_period_label: activePeriodLabel,
+    executive_summary: summaryText
   };
 };
 
@@ -277,7 +345,7 @@ const callAPI = async (endpoint, options = {}) => {
     }
 
     if (endpoint === "/dashboard") {
-      return computeMockDashboard(db);
+      return computeMockDashboard(db, params);
     }
 
     if (endpoint === "/score") {
@@ -408,7 +476,30 @@ const callAPI = async (endpoint, options = {}) => {
         "Can I reach my financial goals?"
       ];
 
-      if (q.includes("hi") || q.includes("hello") || q.includes("who are you") || q.includes("help")) {
+      if (q.includes("yesterday") || q.includes("today") || q.includes("daily") || q.includes("per day")) {
+        const txns = db.transactions || [];
+        const latestTxn = txns[txns.length - 1];
+        const avgDaily = Math.round(dash.total_expense / (dash.monthly_trend.length || 1) / 30);
+        
+        if (q.includes("yesterday")) {
+          reply = `📅 **Yesterday's Spending Report:**\n\n` +
+            `You had **INR 0.00** in recorded expenses yesterday.\n\n` +
+            `📌 **Statement Context:** Your uploaded bank statement records go up to **${latestTxn?.date || "August 2026"}**.\n` +
+            `- On your latest recorded transaction day (**${latestTxn?.date || "2026-08-20"}**), you spent **INR ${parseFloat(latestTxn?.amount || 0).toLocaleString()}** (${latestTxn?.description || "General Expense"}).\n` +
+            `- Your **daily average spending** across recorded months is **INR ${avgDaily.toLocaleString()}/day**.`;
+        } else if (q.includes("today")) {
+          reply = `📅 **Today's Spending Report:**\n\n` +
+            `No new expenses recorded for today so far (**INR 0.00**).\n\n` +
+            `💡 Your average daily burn rate is **INR ${avgDaily.toLocaleString()}/day**.`;
+        } else {
+          const avgDailyInc = Math.round(dash.total_income / (dash.monthly_trend.length || 1) / 30);
+          reply = `📊 **Daily Cash Flow Breakdown**\n\n` +
+            `- 📈 **Average Daily Income:** INR ${avgDailyInc.toLocaleString()}/day\n` +
+            `- 📉 **Average Daily Outflow:** INR ${avgDaily.toLocaleString()}/day\n` +
+            `- 💰 **Daily Net Surplus:** INR ${(avgDailyInc - avgDaily).toLocaleString()}/day`;
+        }
+        suggestions = ["Where is most of my money going?", "What are my top expenses?", "How to boost my savings rate?"];
+      } else if (q.includes("hi") || q.includes("hello") || q.includes("who are you") || q.includes("help")) {
         reply = `👋 **Namaste!** I am **Saarthi AI**, your personal wealth copilot.\n\n` +
           `- 🛡️ **Confidence Score:** \`${scoreObj.confidence_score}/100\`\n` +
           `- 💰 **Net Savings Rate:** \`${dash.savings_rate}%\` (INR ${dash.net_savings.toLocaleString()} total saved)\n` +
@@ -554,8 +645,9 @@ export const apiService = {
   getLinkedAccounts: (userId = 1) => {
     return callAPI("/aggregator/linked-accounts", { params: { user_id: userId } });
   },
-  getDashboard: (userId = 1) => {
-    return callAPI("/dashboard", { params: { user_id: userId } });
+  getDashboard: (params = {}) => {
+    const p = typeof params === "object" ? params : { user_id: params };
+    return callAPI("/dashboard", { params: p });
   },
   getScore: (userId = 1) => {
     return callAPI("/score", { params: { user_id: userId } });
