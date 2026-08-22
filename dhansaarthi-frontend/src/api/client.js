@@ -396,6 +396,77 @@ const callAPI = async (endpoint, options = {}) => {
       return riskRes;
     }
 
+    if (endpoint === "/chat" && method === "POST") {
+      const q = (data.message || "").toLowerCase().trim();
+      const dash = computeMockDashboard(db);
+      const scoreObj = computeMockScore(db, dash);
+      
+      let reply = "";
+      let suggestions = [
+        "Where is most of my money going?",
+        "How to improve my confidence score?",
+        "Can I reach my financial goals?"
+      ];
+
+      if (q.includes("hi") || q.includes("hello") || q.includes("who are you") || q.includes("help")) {
+        reply = `👋 **Namaste!** I am **Saarthi AI**, your personal wealth copilot.\n\n` +
+          `- 🛡️ **Confidence Score:** \`${scoreObj.confidence_score}/100\`\n` +
+          `- 💰 **Net Savings Rate:** \`${dash.savings_rate}%\` (INR ${dash.net_savings.toLocaleString()} total saved)\n` +
+          `- 🎯 **Active Goals:** ${db.goals.length} goals in progress\n\n` +
+          `Ask me anything about your spending, goals, or budgeting!`;
+      } else if (q.includes("food") || q.includes("dining") || q.includes("swiggy") || q.includes("zomato")) {
+        const dining = dash.category_breakdown.find(c => c.category.toLowerCase().includes("food") || c.category.toLowerCase().includes("dining"));
+        const amt = dining ? dining.amount : 5500;
+        const pct = dining ? dining.percentage : 8.5;
+        reply = `🍽️ **Food & Dining Spending Analysis**\n\n` +
+          `- **Total Spent:** INR ${amt.toLocaleString()}\n` +
+          `- **Share of Expenses:** ${pct}%\n\n` +
+          `💡 *Tip:* Reducing weekend deliveries by 20% would redirect ~INR ${Math.round(amt * 0.2).toLocaleString()} straight to your goals.`;
+        suggestions = ["Show my top 3 biggest expenses", "Where can I cut monthly costs?", "Check my savings rate"];
+      } else if (q.includes("shopping") || q.includes("amazon") || q.includes("myntra")) {
+        const shop = dash.category_breakdown.find(c => c.category.toLowerCase().includes("shopping"));
+        const amt = shop ? shop.amount : 18500;
+        const pct = shop ? shop.percentage : 25.0;
+        reply = `🛍️ **Shopping Expenses Analysis**\n\n` +
+          `- **Total Spent:** INR ${amt.toLocaleString()}\n` +
+          `- **Share of Expenses:** ${pct}%\n\n` +
+          `💡 *Recommendation:* Shopping is currently ${pct}% of your budget. Practicing the 72-hour delay rule on carts over INR 2,000 will prevent impulse purchases.`;
+        suggestions = ["Where can I cut expenses safely?", "What are my top expenses?", "How to boost confidence score?"];
+      } else if (q.includes("top") || q.includes("biggest") || q.includes("breakdown") || q.includes("where is my money")) {
+        const top3 = dash.category_breakdown.slice(0, 3);
+        const listStr = top3.map((c, i) => `${i + 1}. **${c.category}**: INR ${c.amount.toLocaleString()} (*${c.percentage}%*)`).join("\n");
+        reply = `💸 **Your Top Expense Categories**\n\n` +
+          `Total Expenses: **INR ${dash.total_expense.toLocaleString()}**\n\n` +
+          listStr + `\n\n🎯 *Focusing on capping discretionary categories will yield the fastest boost to your savings.*`;
+        suggestions = ["Where can I cut expenses?", "How does this affect my Confidence Score?", "Review my financial goals"];
+      } else if (q.includes("score") || q.includes("confidence") || q.includes("health") || q.includes("improve")) {
+        reply = `🛡️ **Financial Confidence Score: \`${scoreObj.confidence_score}/100\`**\n\n` +
+          `- **Savings Rate:** \`${scoreObj.breakdown.savings_rate.score}/25\` (${dash.savings_rate}%)\n` +
+          `- **Spending Control:** \`${scoreObj.breakdown.spending_control.score}/25\`\n` +
+          `- **Emergency Fund:** \`${scoreObj.breakdown.emergency_fund.score}/25\` (${scoreObj.breakdown.emergency_fund.value} months)\n` +
+          `- **Goal Progress:** \`${scoreObj.breakdown.goal_progress.score}/25\`\n\n` +
+          `🚀 **To achieve a 90+ Score:**\n` +
+          `1. Boost your savings rate towards 30% via payday auto-SIPs.\n` +
+          `2. Build your emergency fund to 6 months of living expenses.`;
+        suggestions = ["What are my top expenses?", "Can I reach my goals on time?", "Show recent transactions"];
+      } else if (q.includes("goal") || q.includes("vacation") || q.includes("afford") || q.includes("target")) {
+        const goalList = db.goals.map(g => `- 🎯 **${g.name}**: Target INR ${g.target_amount.toLocaleString()} (Saved: INR ${g.saved_amount.toLocaleString()} - ${Math.round((g.saved_amount / g.target_amount) * 100)}%)`).join("\n");
+        reply = `🎯 **Financial Goals Progress**\n\n` +
+          (goalList || "No goals found. Add goals in the Financial Goals tab!") +
+          `\n\n💰 **Monthly Surplus:** INR ${dash.net_savings.toLocaleString()} total available.`;
+        suggestions = ["Where can I cut costs to meet goals?", "What is my investment asset allocation?", "Check confidence score"];
+      } else {
+        reply = `💡 **Financial Summary for your account**\n\n` +
+          `- **Income Inflow:** INR ${dash.total_income.toLocaleString()}\n` +
+          `- **Expenses Outflow:** INR ${dash.total_expense.toLocaleString()}\n` +
+          `- **Net Savings:** INR ${dash.net_savings.toLocaleString()} (${dash.savings_rate}% rate)\n` +
+          `- **Confidence Score:** ${scoreObj.confidence_score}/100\n\n` +
+          `You can ask me specific questions about your spending, goals, or budgeting tips!`;
+      }
+
+      return { status: "success", reply, suggestions };
+    }
+
     // Default empty return
     return {};
   }
@@ -449,6 +520,13 @@ export const apiService = {
   },
   getInsights: (userId = 1) => {
     return callAPI("/insights", { params: { user_id: userId } });
+  },
+  sendChatMessage: (message, history = [], userId = 1) => {
+    return callAPI("/chat", {
+      method: "POST",
+      data: { message, history },
+      params: { user_id: userId }
+    });
   },
   login: (credentials) => {
     return callAPI("/auth/login", {

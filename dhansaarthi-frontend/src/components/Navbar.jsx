@@ -1,11 +1,12 @@
 import React from "react";
-import { LayoutDashboard, Target, TrendingUp, BrainCircuit, UploadCloud, LogOut, User } from "lucide-react";
+import { LayoutDashboard, Target, TrendingUp, BrainCircuit, UploadCloud, LogOut, User, Bot } from "lucide-react";
 
 export default function Navbar({ activeTab, setActiveTab, user = null, onLogout = null }) {
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "score", label: "Confidence Score", icon: TrendingUp },
     { id: "goals", label: "Financial Goals", icon: Target },
+    { id: "chat", label: "Saarthi AI", icon: Bot, isSpecial: true },
     { id: "insights", label: "AI Insights", icon: BrainCircuit },
     { id: "upload", label: "Upload Statement", icon: UploadCloud }
   ];
@@ -57,18 +58,24 @@ export default function Navbar({ activeTab, setActiveTab, user = null, onLogout 
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const isSpecial = item.isSpecial;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className="btn"
                 style={{
-                  background: isActive ? "var(--border-focus)" : "transparent",
-                  color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-                  border: "none",
+                  background: isActive 
+                    ? (isSpecial ? "rgba(245, 158, 11, 0.15)" : "var(--border-focus)")
+                    : (isSpecial ? "rgba(245, 158, 11, 0.05)" : "transparent"),
+                  color: isActive 
+                    ? (isSpecial ? "var(--brand-gold)" : "var(--text-primary)")
+                    : (isSpecial ? "var(--brand-gold)" : "var(--text-secondary)"),
+                  border: isSpecial ? (isActive ? "1px solid var(--brand-gold)" : "1px solid rgba(245, 158, 11, 0.3)") : "none",
                   padding: "8px 16px",
                   borderRadius: "var(--radius-sm)",
                   fontSize: "0.9rem",
+                  fontWeight: isSpecial ? "600" : "normal",
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
@@ -76,18 +83,18 @@ export default function Navbar({ activeTab, setActiveTab, user = null, onLogout 
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
-                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
-                    e.currentTarget.style.color = "var(--text-primary)";
+                    e.currentTarget.style.backgroundColor = isSpecial ? "rgba(245, 158, 11, 0.15)" : "rgba(255, 255, 255, 0.05)";
+                    e.currentTarget.style.color = isSpecial ? "var(--brand-gold)" : "var(--text-primary)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isActive) {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "var(--text-secondary)";
+                    e.currentTarget.style.backgroundColor = isSpecial ? "rgba(245, 158, 11, 0.05)" : "transparent";
+                    e.currentTarget.style.color = isSpecial ? "var(--brand-gold)" : "var(--text-secondary)";
                   }
                 }}
               >
-                <Icon size={18} style={{ color: isActive ? "var(--brand-emerald)" : "inherit" }} />
+                <Icon size={18} style={{ color: isSpecial ? "var(--brand-gold)" : (isActive ? "var(--brand-emerald)" : "inherit") }} />
                 {item.label}
               </button>
             );

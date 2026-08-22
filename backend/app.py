@@ -11,6 +11,7 @@ from routes.score_routes import score_bp
 from routes.upload_routes import upload_bp
 from routes.risk_routes import risk_bp
 from routes.auth_routes import auth_bp
+from routes.chat_routes import chat_bp
 
 
 def create_app(config_class=Config):
@@ -29,6 +30,7 @@ def create_app(config_class=Config):
     app.register_blueprint(insight_bp, url_prefix="/api/insights")
     app.register_blueprint(risk_bp, url_prefix="/api/risk-profile")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(chat_bp, url_prefix="/api/chat")
 
     @app.get("/api/health")
     def health():

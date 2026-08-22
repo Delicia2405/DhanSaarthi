@@ -6,6 +6,8 @@ import Goals from "./pages/Goals";
 import Insights from "./pages/Insights";
 import Upload from "./pages/Upload";
 import Auth from "./pages/Auth";
+import ChatAssistant from "./pages/ChatAssistant";
+import ChatWidget from "./components/ChatWidget";
 import { apiService } from "./api/client";
 
 export default function App() {
@@ -111,6 +113,14 @@ export default function App() {
             loading={loading} 
           />
         );
+      case "chat":
+        return (
+          <ChatAssistant 
+            dashData={dashData} 
+            scoreData={scoreData} 
+            goals={goals} 
+          />
+        );
       case "insights":
         return <Insights insightsData={insights} loading={loading} />;
       case "upload":
@@ -165,6 +175,11 @@ export default function App() {
         )}
         {renderContent()}
       </main>
+
+      {/* Global Floating AI Chatbot Widget (hidden when already on full chat page) */}
+      {activeTab !== "chat" && (
+        <ChatWidget onOpenFullPage={() => setActiveTab("chat")} />
+      )}
 
       {/* Footer */}
       <footer style={{
