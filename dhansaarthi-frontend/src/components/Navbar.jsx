@@ -1,5 +1,5 @@
 import React from "react";
-import { LayoutDashboard, Target, TrendingUp, BrainCircuit, UploadCloud, LogOut, User, Bot } from "lucide-react";
+import { LayoutDashboard, Target, TrendingUp, BrainCircuit, UploadCloud, LogOut, User, Bot, Zap } from "lucide-react";
 
 export default function Navbar({ activeTab, setActiveTab, user = null, onLogout = null }) {
   const navItems = [
@@ -8,7 +8,7 @@ export default function Navbar({ activeTab, setActiveTab, user = null, onLogout 
     { id: "goals", label: "Financial Goals", icon: Target },
     { id: "chat", label: "Saarthi AI", icon: Bot, isSpecial: true },
     { id: "insights", label: "AI Insights", icon: BrainCircuit },
-    { id: "upload", label: "Upload Statement", icon: UploadCloud }
+    { id: "upload", label: "Link & Upload", icon: Zap }
   ];
 
   return (

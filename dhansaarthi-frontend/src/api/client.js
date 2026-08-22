@@ -467,6 +467,54 @@ const callAPI = async (endpoint, options = {}) => {
       return { status: "success", reply, suggestions };
     }
 
+    if (endpoint === "/aggregator/discover" && method === "POST") {
+      const mockAccounts = [
+        { id: "acc_hdfc_01", bank_name: "HDFC Bank", account_type: "Salary Account", account_number: "XXXX-XXXX-4812", ifsc: "HDFC0001234", balance: 85400.00, branch: "Indiranagar, Bengaluru", logo_color: "#004c8f" },
+        { id: "acc_sbi_02", bank_name: "State Bank of India", account_type: "Savings Account", account_number: "XXXX-XXXX-9031", ifsc: "SBIN0004567", balance: 142800.00, branch: "MG Road, Bengaluru", logo_color: "#280071" },
+        { id: "acc_icici_03", bank_name: "ICICI Bank", account_type: "Emergency Savings", account_number: "XXXX-XXXX-2240", ifsc: "ICIC0007890", balance: 65200.00, branch: "Koramangala, Bengaluru", logo_color: "#f37021" },
+        { id: "acc_axis_04", bank_name: "Axis Bank", account_type: "Secondary Savings", account_number: "XXXX-XXXX-7719", ifsc: "UTIB0003210", balance: 28500.00, branch: "Whitefield, Bengaluru", logo_color: "#97144d" },
+        { id: "acc_kotak_05", bank_name: "Kotak Mahindra Bank", account_type: "Everyday Spending", account_number: "XXXX-XXXX-5512", ifsc: "KKBK0006543", balance: 14350.00, branch: "HSR Layout, Bengaluru", logo_color: "#ed1c24" }
+      ];
+      return { status: "success", accounts: mockAccounts };
+    }
+
+    if (endpoint === "/aggregator/request-otp" && method === "POST") {
+      return {
+        status: "success",
+        session_id: `aa_sess_${Date.now()}`,
+        otp_hint: "123456",
+        consent_artifact: {
+          purpose: "Personal Financial Management & Automated Wealth Insights",
+          data_frequency: "Periodic / Real-Time Daily",
+          data_range: "Past 6 Months to Current",
+          valid_until: "2027-08-22",
+          revocable: true
+        }
+      };
+    }
+
+    if (endpoint === "/aggregator/verify-consent" && method === "POST") {
+      const mockTxns = [
+        { id: Date.now() + 1, user_id: userId, amount: 85000, type: "income", category: "Income", date: "2026-08-01", source: "AA:HDFC Bank", description: "HDFC Bank - Salary Credit Tech Corp" },
+        { id: Date.now() + 2, user_id: userId, amount: 22000, type: "expense", category: "Housing & Rent", date: "2026-08-02", source: "AA:HDFC Bank", description: "HDFC Bank - House Rent Payment" },
+        { id: Date.now() + 3, user_id: userId, amount: 15000, type: "expense", category: "Investments", date: "2026-08-08", source: "AA:HDFC Bank", description: "HDFC Bank - Zerodha Nifty 50 SIP" },
+        { id: Date.now() + 4, user_id: userId, amount: 5000, type: "expense", category: "Investments", date: "2026-08-10", source: "AA:State Bank of India", description: "SBI - Bluechip Mutual Fund SIP" },
+        { id: Date.now() + 5, user_id: userId, amount: 4800, type: "expense", category: "Groceries", date: "2026-08-05", source: "AA:State Bank of India", description: "SBI - DMart Supermarket Monthly" },
+        { id: Date.now() + 6, user_id: userId, amount: 15000, type: "income", category: "Income", date: "2026-08-15", source: "AA:ICICI Bank", description: "ICICI - Freelance UI/UX Payout" }
+      ];
+      db.transactions = [...db.transactions, ...mockTxns];
+      saveMockDB(db);
+      return { status: "success", imported_transactions_count: mockTxns.length, message: "Bank accounts successfully linked!" };
+    }
+
+    if (endpoint === "/aggregator/linked-accounts" && method === "GET") {
+      const mockAccounts = [
+        { id: "acc_hdfc_01", bank_name: "HDFC Bank", account_type: "Salary Account", account_number: "XXXX-XXXX-4812", balance: 85400.00 },
+        { id: "acc_sbi_02", bank_name: "State Bank of India", account_type: "Savings Account", account_number: "XXXX-XXXX-9031", balance: 142800.00 }
+      ];
+      return { status: "success", linked_accounts: mockAccounts, total_balance: 228200.00 };
+    }
+
     // Default empty return
     return {};
   }
@@ -481,6 +529,30 @@ export const apiService = {
       data: formData,
       params: { user_id: userId }
     });
+  },
+  discoverAccounts: (phone, aaHandle, userId = 1) => {
+    return callAPI("/aggregator/discover", {
+      method: "POST",
+      data: { phone, aa_handle: aaHandle },
+      params: { user_id: userId }
+    });
+  },
+  requestAAOtp: (phone, selectedAccountIds, userId = 1) => {
+    return callAPI("/aggregator/request-otp", {
+      method: "POST",
+      data: { phone, selected_account_ids: selectedAccountIds },
+      params: { user_id: userId }
+    });
+  },
+  verifyAAConsent: (otp, selectedAccountIds, userId = 1) => {
+    return callAPI("/aggregator/verify-consent", {
+      method: "POST",
+      data: { otp, selected_account_ids: selectedAccountIds },
+      params: { user_id: userId }
+    });
+  },
+  getLinkedAccounts: (userId = 1) => {
+    return callAPI("/aggregator/linked-accounts", { params: { user_id: userId } });
   },
   getDashboard: (userId = 1) => {
     return callAPI("/dashboard", { params: { user_id: userId } });
