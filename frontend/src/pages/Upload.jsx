@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { apiService } from "../api/client";
 
-export default function Upload({ onUploadSuccess }) {
+export default function Upload({ onUploadSuccess, onNavigateToDashboard }) {
   // Main Mode: 'aggregator' or 'csv'
   const [activeMode, setActiveMode] = useState("aggregator");
 
@@ -573,7 +573,11 @@ export default function Upload({ onUploadSuccess }) {
                   </button>
                   <button
                     onClick={() => {
-                      if (onUploadSuccess) onUploadSuccess();
+                      if (onNavigateToDashboard) {
+                        onNavigateToDashboard();
+                      } else if (onUploadSuccess) {
+                        onUploadSuccess();
+                      }
                     }}
                     className="btn btn-primary"
                     style={{ fontSize: "0.85rem", fontWeight: "700" }}
@@ -698,6 +702,19 @@ export default function Upload({ onUploadSuccess }) {
                   <p style={{ maxWidth: "340px", fontSize: "0.9rem", color: "var(--text-secondary)" }}>
                     Your financial profile and confidence scores have been updated to reflect these statements.
                   </p>
+                  <button
+                    onClick={() => {
+                      if (onNavigateToDashboard) {
+                        onNavigateToDashboard();
+                      } else if (onUploadSuccess) {
+                        onUploadSuccess();
+                      }
+                    }}
+                    className="btn btn-primary"
+                    style={{ fontSize: "0.85rem", fontWeight: "700", marginTop: "8px" }}
+                  >
+                    View Updated Dashboard
+                  </button>
                 </div>
               )}
 

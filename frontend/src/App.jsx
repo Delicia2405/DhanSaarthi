@@ -124,7 +124,15 @@ export default function App() {
       case "insights":
         return <Insights insightsData={insights} loading={loading} />;
       case "upload":
-        return <Upload onUploadSuccess={fetchAllData} />;
+        return (
+          <Upload 
+            onUploadSuccess={fetchAllData} 
+            onNavigateToDashboard={() => {
+              fetchAllData();
+              setActiveTab("dashboard");
+            }} 
+          />
+        );
       default:
         return <Dashboard dashData={dashData} loading={loading} />;
     }
